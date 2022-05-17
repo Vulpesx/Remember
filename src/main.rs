@@ -1,6 +1,6 @@
-use std::{thread, time, ops::Rem, vec};
+use std::{thread, time, vec};
 
-use chrono::{Utc, DateTime, Local, Datelike, Timelike};
+use chrono::{DateTime, Local, Datelike, Timelike};
 use libnotify::Notification;
 
 #[derive(Debug)]
@@ -71,8 +71,10 @@ impl<'a> Reminder<'a> {
                 if d.to_lowercase() != now.weekday().to_string().to_lowercase() {
                     return false;
                 }
-                if now.minute() < t.minutes && now.hour() < t.hour {
-                    print!("klashfkj");
+                if now.hour() < t.hour {
+                    return false;
+                }
+                if now.minute() < t.minutes {
                     return false;
                 }
                 true
@@ -87,7 +89,10 @@ impl<'a> Reminder<'a> {
                 if now.day() < d.day {
                     return false;
                 }
-                if now.minute() < t.minutes && now.hour() < t.hour{
+                if now.hour() < t.hour {
+                    return false;
+                }
+                if now.minute() < t.minutes {
                     return false;
                 }
                 true
@@ -105,19 +110,22 @@ impl<'a> Reminder<'a> {
 fn main() {
     libnotify::init("Remember");
 
-    let mut r = Reminder::new(When::Day("Mon".to_string(), Time::new(16, 58)), "this is a test", Some("this is a test of the amazinf Remember program"));
-    let mut reminders = vec![r];
+    let mut day  = Reminder::new(When::Day("Tue".to_string(), Time::new(11, 25)), "this is a day test", None);
+    let mut date  = Reminder::new(When::Date(Date::new(16, 5, 2022), Time::new(11, 25)), "this is a date test", None);
+    let mut duration  = Reminder::new(When::Duration(3), "this is a duration test", None);
+    let mut url = Reminder::new(When::Duration(2), "url test", Some("<https://google.com>"));
 
-    while reminders.len() > 0 {
+    let mut reminders = vec![day, date, duration, url];
+    let mut len = reminders.len();
+    let mut quit = false;
+
+    while reminders.len() > 0 && !quit{
         thread::sleep(time::Duration::from_secs(1));
         let now = Local::now();
-        for i in 0..reminders.len() {
+        for i in 0..len {
             let mut r = &mut reminders[i];
-            if r.check(now) {
+            if !r.done && r.check(now) {
                 r.show().unwrap();
-            }
-            if r.done {
-                reminders.remove(i);
             }
         }
     }
