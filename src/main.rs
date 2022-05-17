@@ -1,4 +1,4 @@
-use std::{thread, time, vec};
+use std::{thread, time, vec, fs::{self, File}, io, str::FromStr};
 
 use chrono::{DateTime, Local, Datelike, Timelike};
 use libnotify::Notification;
@@ -60,7 +60,6 @@ impl<'a> Reminder<'a> {
         match self.when.clone() {
             Duration(s) => {
                 if s > 0 {
-                    println!("{}", s);
                     self.when = When::Duration(s - 1);
                     false
                 } else {
@@ -107,13 +106,67 @@ impl<'a> Reminder<'a> {
     }
 }
 
+#[derive(Debug)]
+enum ReminderError {
+    FromStr,
+}
+
+
+impl<'a> FromStr for Reminder<'a> {
+    type Err = ReminderError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        todo!("convirt from string")
+    }
+}
+
+fn get_reminders(file: &str, vec: &mut Vec<Reminder>) -> Result<(), io::Error>{
+    let f = fs::read_to_string(file)?;
+    for s in f.split(";") {
+        Reminder::from_str(s);
+    }
+    Ok(())
+}
+
+macro_rules! remind {
+    ($day:ident $hour:literal:$minute:literal $sum:literal) => {
+        {
+            let day = stringify!($day).to_lowercase();
+            if !"montuewedthufrisatsun".contains(&day) {
+                panic!("invalid day");
+            }
+            Reminder::new(When::Day(day, Time::new($hour, $minute)), $sum, None)
+        }
+    };
+    ($day:ident $hour:literal:$minute:literal $sum:literal $body:literal) => {
+        {
+            let day = stringify!($day).to_lowercase();
+            if !"montuewedthufrisatsun".contains(&day) {
+                panic!("invalid day");
+            }
+            Reminder::new(When::Day(day, Time::new($hour, $minute)), $sum, Some($body))
+        }
+    };
+    ($sec:literal $sum:literal) => {
+        Reminder::new(When::Duration($sec), $sum, None)
+    };
+    ($sec:literal $sum:literal $body:literal) => {
+        Reminder::new(When::Duration($sec), $sum, Some($body))
+    };
+    ($day:literal/$month:literal/$year:literal $hour:literal:$minute:literal $sum:literal) => {
+        Reminder::new(When::Date(Date::new($day, $month, $year), Time::new($hour, $minute)), $sum, None)
+    };
+    ($day:literal/$month:literal/$year:literal $hour:literal:$minute:literal $sum:literal $body:literal) => {
+        Reminder::new(When::Date($day, $month, $year, Time::new($hour, $minute)), $sum, Some($body))
+    };
+}
+
 fn main() {
     libnotify::init("Remember");
 
-    let mut day  = Reminder::new(When::Day("Tue".to_string(), Time::new(11, 25)), "this is a day test", None);
-    let mut date  = Reminder::new(When::Date(Date::new(16, 5, 2022), Time::new(11, 25)), "this is a date test", None);
-    let mut duration  = Reminder::new(When::Duration(3), "this is a duration test", None);
-    let mut url = Reminder::new(When::Duration(2), "url test", Some("<https://google.com>"));
+    let day = remind!(tue 11:25 "this is a day test");          // Reminder::new(When::Day("Tue".to_string(), Time::new(11, 25)), "this is a day test", None);
+    let date = remind!(16/5/2022 11:25 "this is a date test");  // Reminder::new(When::Date(Date::new(16, 5, 2022), Time::new(11, 25)), "this is a date test", None);
+    let duration = remind!(3 "this is a duration test");        // Reminder::new(When::Duration(3), "this is a duration test", None);
+    let url = remind!(3 "<https://google.com>");                // Reminder::new(When::Duration(2), "url test", Some("<https://google.com>"));
 
     let mut reminders = vec![day, date, duration, url];
     let mut len = reminders.len();
