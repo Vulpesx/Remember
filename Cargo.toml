@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 libnotify = "1.0.3"
 chrono = "0.4"
+anyhow = "1.0.57"

@@ -1,5 +1,6 @@
 use std::str::FromStr;
 
+use anyhow::{bail, Context};
 use libnotify::Notification;
 use chrono::{DateTime, Local, Datelike, Timelike};
 
@@ -127,11 +128,22 @@ pub enum ReminderError<'a> {
 
 
 impl<'a> FromStr for Reminder<'a> {
-    type Err = ReminderError<'a>;
+    type Err = anyhow::Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let v: Vec<&str> = s.split(";").collect();
         if "montuewedthufrisatsun".contains(v[0]) {
-            todo!("parse days")
+            if v.len() < 3 { bail!("expected atleast 3 arguments, but instead got: {}", v.len()) }
+            let day = v[0];
+            let t: Vec<&str> = v[1].split(":").collect();
+            if t.len() != 2 { bail!("invalid time! should be [hour]:[minute]") }
+            let h: u32 = t[0].parse().context("failed to parse hour")?;
+            let m: u32 = t[1].parse().context("failed to parse minute")?;
+            let sum = v[2];
+            let text = match v.len() {
+                x if x > 3 => { Some(v[3])},
+                _ => { None }
+            };
+            let day = When::Day(day.to_string(), Time::new(h, m));
         } else if v[0].contains("/") {
             todo!("parse dates")
         } else if v[0].contains(":") {
@@ -140,7 +152,7 @@ impl<'a> FromStr for Reminder<'a> {
             todo!("parse durations")
         }
 
-        Err(ReminderError::FromStr("unknown"))
+        bail!("todo")
     }
 }
 
@@ -183,3 +195,4 @@ macro_rules! remind {
         Reminder::new($crate::When::Date($day, $month, $year, $crate::Time::new($hour, $minute)), $sum, Some($body))
     };
 }
+
