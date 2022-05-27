@@ -4,6 +4,8 @@ use anyhow::{bail, Context};
 use libnotify::Notification;
 use chrono::{DateTime, Local, Datelike, Timelike};
 
+pub mod lexer;
+
 #[derive(Debug)]
 pub struct Reminder<'a> {
     summary: &'a str,
