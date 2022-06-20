@@ -1,6 +1,3 @@
-use std::str::FromStr;
-
-use anyhow::{bail, Context};
 use libnotify::Notification;
 use chrono::{DateTime, Local, Datelike, Timelike};
 
