@@ -1,14 +1,13 @@
+use chrono::{DateTime, Datelike, Local, Timelike};
 use libnotify::Notification;
-use chrono::{DateTime, Local, Datelike, Timelike};
-
 
 #[derive(Debug)]
-pub struct Reminder<'a> {
-    summary: &'a str,
-    body: Option<&'a str>,
+pub struct Reminder {
+    summary: String,
+    body: Option<String>,
     when: When,
     done: bool,
-    notif: Notification,
+    notif: Option<Notification>,
 }
 
 #[derive(Debug, Clone)]
@@ -19,13 +18,13 @@ pub enum When {
     Time(u32, u32),
 }
 
-impl<'a> Reminder<'a> {
-    pub fn new<'s>(when: When, summary: &'s str, body: Option<&'s str>) -> Reminder<'s> {
+impl Reminder {
+    pub fn new(when: When, summary: String, body: Option<String>) -> Reminder {
         Reminder {
             when,
             summary,
             body,
-            notif: Notification::new(summary, body, None),
+            notif: None,
             done: false,
         }
     }
@@ -40,7 +39,7 @@ impl<'a> Reminder<'a> {
                 } else {
                     true
                 }
-            },
+            }
             Day(d, h, m) => {
                 if d.to_lowercase() != now.weekday().to_string().to_lowercase() {
                     return false;
@@ -48,7 +47,7 @@ impl<'a> Reminder<'a> {
                 if now.hour() < h {
                     return false;
                 }
-                if now.minute() < m{
+                if now.minute() < m {
                     return false;
                 }
                 true
@@ -57,25 +56,25 @@ impl<'a> Reminder<'a> {
                 if now.year() < y && y != -1 {
                     return false;
                 }
-                if now.month() < m && m != 0{
+                if now.month() < m && m != 0 {
                     return false;
                 }
                 if now.day() < d {
                     return false;
                 }
-                if now.hour() < h{
+                if now.hour() < h {
                     return false;
                 }
-                if now.minute() < min{
+                if now.minute() < min {
                     return false;
                 }
                 true
-            },
+            }
             Time(h, m) => {
-                if now.hour() < h{
+                if now.hour() < h {
                     return false;
                 }
-                if now.minute() < m{
+                if now.minute() < m {
                     return false;
                 }
                 true
@@ -84,9 +83,12 @@ impl<'a> Reminder<'a> {
     }
 
     pub fn show(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        if self.notif.is_none() {
+            Notification::new(&self.summary, None, None);
+        }
         println!("{:?}", self);
         self.done = true;
-        Ok(self.notif.show()?)
+        Ok(self.notif.as_ref().unwrap().show()?)
     }
 
     pub fn is_done(&self) -> bool {
@@ -100,71 +102,90 @@ pub enum ReminderError<'a> {
 }
 
 //impl<'a> FromStr for Reminder<'a> {
-    //type Err = anyhow::Error;
-    //fn from_str(s: &str) -> Result<Self, Self::Err> {
-        //let v: Vec<&str> = s.split(";").collect();
-        //if "montuewedthufrisatsun".contains(v[0]) {
-            //if v.len() < 3 { bail!("expected atleast 3 arguments, but instead got: {}", v.len()) }
-            //let day = v[0];
-            //let t: Vec<&str> = v[1].split(":").collect();
-            //if t.len() != 2 { bail!("invalid time! should be [hour]:[minute]") }
-            //let h: u32 = t[0].parse().context("failed to parse hour")?;
-            //let m: u32 = t[1].parse().context("failed to parse minute")?;
-            //let sum = v[2];
-            //let text = match v.len() {
-                //x if x > 3 => { Some(v[3])},
-                //_ => { None }
-            //};
-            //let day = When::Day(day.to_string(), Time::new(h, m));
-        //} else if v[0].contains("/") {
-            //todo!("parse dates")
-        //} else if v[0].contains(":") {
-            //todo!("parse times")
-        //} else {
-            //todo!("parse durations")
-        //}
+//type Err = anyhow::Error;
+//fn from_str(s: &str) -> Result<Self, Self::Err> {
+//let v: Vec<&str> = s.split(";").collect();
+//if "montuewedthufrisatsun".contains(v[0]) {
+//if v.len() < 3 { bail!("expected atleast 3 arguments, but instead got: {}", v.len()) }
+//let day = v[0];
+//let t: Vec<&str> = v[1].split(":").collect();
+//if t.len() != 2 { bail!("invalid time! should be [hour]:[minute]") }
+//let h: u32 = t[0].parse().context("failed to parse hour")?;
+//let m: u32 = t[1].parse().context("failed to parse minute")?;
+//let sum = v[2];
+//let text = match v.len() {
+//x if x > 3 => { Some(v[3])},
+//_ => { None }
+//};
+//let day = When::Day(day.to_string(), Time::new(h, m));
+//} else if v[0].contains("/") {
+//todo!("parse dates")
+//} else if v[0].contains(":") {
+//todo!("parse times")
+//} else {
+//todo!("parse durations")
+//}
 
-        //bail!("todo")
-    //}
+//bail!("todo")
+//}
 //}
 
 #[macro_export]
 macro_rules! remind {
     ($hour:literal:$minute:literal $sum:literal) => {
-        Reminder::new(When::Time($hour, $minute), $sum, None)
+        Reminder::new(When::Time($hour, $minute), String::from($sum), None)
     };
     ($hour:literal:$minute:literal $sum:literal $body:literal) => {
-        Reminder::new($crate::When::Time($hour, $minute), $sum, Some($body))
+        Reminder::new(
+            $crate::When::Time($hour, $minute),
+            String::from($sum),
+            Some(String::from($body)),
+        )
     };
-    ($day:ident $hour:literal:$minute:literal $sum:literal) => {
-        {
-            let day = stringify!($day).to_lowercase();
-            if !"montuewedthufrisatsun".contains(&day) {
-                panic!("invalid day");
-            }
-            Reminder::new($crate::When::Day(day, $hour, $minute), $sum, None)
+    ($day:ident $hour:literal:$minute:literal $sum:literal) => {{
+        let day = stringify!($day).to_lowercase();
+        if !"montuewedthufrisatsun".contains(&day) {
+            panic!("invalid day");
         }
-    };
-    ($day:ident $hour:literal:$minute:literal $sum:literal $body:literal) => {
-        {
-            let day = stringify!($day).to_lowercase();
-            if !"montuewedthufrisatsun".contains(&day) {
-                panic!("invalid day");
-            }
-            Reminder::new($crate::When::Day(day, $hour, $minute), $sum, Some($body))
+        Reminder::new(
+            $crate::When::Day(day, $hour, $minute),
+            String::from($sum),
+            None,
+        )
+    }};
+    ($day:ident $hour:literal:$minute:literal $sum:literal $body:literal) => {{
+        let day = stringify!($day).to_lowercase();
+        if !"montuewedthufrisatsun".contains(&day) {
+            panic!("invalid day");
         }
-    };
+        Reminder::new(
+            $crate::When::Day(day, $hour, $minute),
+            String::from($sum),
+            Some(String::from($body)),
+        )
+    }};
     ($sec:literal $sum:literal) => {
-        Reminder::new($crate::When::Duration($sec), $sum, None)
+        Reminder::new($crate::When::Duration($sec), String::from($sum), None)
     };
     ($sec:literal $sum:literal $body:literal) => {
-        Reminder::new($crate::When::Duration($sec), $sum, Some($body))
+        Reminder::new(
+            $crate::When::Duration($sec),
+            String::from($sum),
+            Some(String::from($body)),
+        )
     };
     ($day:literal/$month:literal/$year:literal $hour:literal:$minute:literal $sum:literal) => {
-        Reminder::new($crate::When::Date($day, $month, $year, $hour, $minute), $sum, None)
+        Reminder::new(
+            $crate::When::Date($day, $month, $year, $hour, $minute),
+            String::from($sum),
+            None,
+        )
     };
     ($day:literal/$month:literal/$year:literal $hour:literal:$minute:literal $sum:literal $body:literal) => {
-        Reminder::new($crate::When::Date($day, $month, $year, $hour, $minute), $sum, Some($body))
+        Reminder::new(
+            $crate::When::Date($day, $month, $year, $hour, $minute),
+            String::from($sum),
+            Some(String::from($body)),
+        )
     };
 }
-

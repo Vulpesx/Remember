@@ -1,5 +1,5 @@
-use std::iter::Peekable;
 use std::fmt::Display;
+use std::iter::Peekable;
 
 #[derive(Debug, Clone)]
 pub struct Loc {
@@ -109,7 +109,7 @@ impl<Chars: Iterator<Item = char>> Lexer<Chars> {
         self.peeked.get_or_insert(token)
     }
 
-    pub fn next_token(&mut self) -> Token {
+    fn next_token(&mut self) -> Token {
         self.peeked.take().unwrap_or_else(|| self.chop_tokens())
     }
 
@@ -283,4 +283,3 @@ impl<Chars: Iterator<Item = char>> Iterator for Lexer<Chars> {
         }
     }
 }
-
