@@ -124,29 +124,26 @@ fn debug_parser(config: Config) {
                         println!("no reminders set");
                     }
                 }
-                Command::Remind => {
-                    match parser::parse_duration(&mut lexer, true) {
-                        Ok(r) => {
-                            reminders.push(r);
-                        }
-                        Err(e) => match e {
-                            ParserError::NoToken => eprintln!("no input"),
-                            ParserError::UnclosedStr(loc, text) => {
-                                print!(" {}", " ".repeat(loc.col));
-                                println!("{}", "^".repeat(text.len() - 1));
-                                println!("ERROR :: UnclosedStr");
-                            }
-                            ParserError::UnexpectedToken(loc, got, expected) => {
-                                print!("{}", " ".repeat(loc.col));
-                                println!("^^^");
-                                println!("ERROR :: UnexpectedToken");
-                                println!("GOT :: {:?}", got);
-                                println!("EXPECTED:: {:?}", expected);
-                            }
-                        },
+                Command::Remind => match parser::parse_time(&mut lexer) {
+                    Ok(r) => {
+                        reminders.push(r);
                     }
-                    println!("WIP!!");
-                }
+                    Err(e) => match e {
+                        ParserError::NoToken => eprintln!("no input"),
+                        ParserError::UnclosedStr(loc, text) => {
+                            print!(" {}", " ".repeat(loc.col));
+                            println!("{}", "^".repeat(text.len() - 1));
+                            println!("ERROR :: UnclosedStr");
+                        }
+                        ParserError::UnexpectedToken(loc, got, text, expected) => {
+                            print!("{}", " ".repeat(loc.col));
+                            println!("^^^");
+                            println!("ERROR :: UnexpectedToken");
+                            println!("GOT :: {:?} : {}", got, text);
+                            println!("EXPECTED:: {:?}", expected);
+                        }
+                    },
+                },
                 Command::Edit => {
                     println!("TODO!!");
                 }
