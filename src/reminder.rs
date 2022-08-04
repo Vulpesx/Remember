@@ -53,7 +53,7 @@ impl Reminder {
                 true
             }
             Date(d, m, y, h, min) => {
-                if now.year() < y && y != -1 {
+                if now.year() < y && y != 0 {
                     return false;
                 }
                 if now.month() < m && m != 0 {

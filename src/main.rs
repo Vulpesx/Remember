@@ -109,59 +109,77 @@ fn debug_parser(config: Config) {
         let command = parser::get_command(&mut lexer);
 
         match command {
-            Some(c) => match c {
-                Command::Quit => {
-                    println!("quiting");
-                    std::process::exit(0);
-                }
-                Command::List => {
-                    if reminders.len() > 0 {
-                        println!("id || Reminder");
-                        for (i, r) in reminders.iter().enumerate() {
-                            println!("{}    {:?}", i, r);
-                        }
-                    } else {
-                        println!("no reminders set");
+            Some(c) => {
+                match c {
+                    Command::Quit => {
+                        println!("quiting");
+                        std::process::exit(0);
                     }
-                }
-                Command::Remind => match parser::parse_time(&mut lexer) {
-                    Ok(r) => {
-                        reminders.push(r);
-                    }
-                    Err(e) => match e {
-                        ParserError::NoToken => eprintln!("no input"),
-                        ParserError::UnclosedStr(loc, text) => {
-                            print!(" {}", " ".repeat(loc.col));
-                            println!("{}", "^".repeat(text.len() - 1));
-                            println!("ERROR :: UnclosedStr");
+                    Command::List => {
+                        if reminders.len() > 0 {
+                            println!("id || Reminder");
+                            for (i, r) in reminders.iter().enumerate() {
+                                println!("{}    {:?}", i, r);
+                            }
+                        } else {
+                            println!("no reminders set");
                         }
-                        ParserError::UnexpectedToken(loc, got, text, expected) => {
-                            print!("{}", " ".repeat(loc.col));
-                            println!("^^^");
-                            println!("ERROR :: UnexpectedToken");
-                            println!("GOT :: {:?} : {}", got, text);
-                            println!("EXPECTED:: {:?}", expected);
+                    }
+                    Command::Remind => match parser::parse_day(&mut lexer) {
+                        Ok(r) => {
+                            reminders.push(r);
+                        }
+                        Err(e) => match e {
+                            ParserError::NoToken(loc) => {
+                                eprint!("{}", " ".repeat(loc.col));
+                                eprintln!("{}", "^");
+                                eprintln!("ERROR :: Expected Input");
+                            }
+                            ParserError::UnclosedStr(loc, text) => {
+                                eprint!(" {}", " ".repeat(loc.col));
+                                eprintln!("{}", "^".repeat(text.len() - 1));
+                                eprintln!("ERROR :: UnclosedStr");
+                            }
+                            ParserError::UnexpectedToken(loc, got, text, expected) => {
+                                eprint!("{}", " ".repeat(loc.col));
+                                eprintln!("^^^");
+                                eprintln!("ERROR :: UnexpectedToken");
+                                eprintln!("GOT :: {:?} : {}", got, text);
+                                eprintln!("EXPECTED:: {:?}", expected);
+                            }
+                            ParserError::InvalidDay(loc, text) => {
+                                eprint!("{}", " ".repeat(loc.col));
+                                eprintln!("{}", "^".repeat(text.len() - 1));
+                                eprintln!("ERROR :: Invalid Day");
+                                eprintln!("Only shorthand works right now, eg: mon/tue/wed/thu/fri/sat/sun");
+                            }
+                            ParserError::InvalidNum(loc, num, min, max) => {
+                                eprint!("{}", " ".repeat(loc.col - 2));
+                                eprintln!("^^^");
+                                eprintln!("ERROR :: Invalid Number");
+                                eprintln!("{} is not between {}-{}", num, min, max);
+                            }
+                        },
+                    },
+                    Command::Edit => {
+                        println!("TODO!!");
+                    }
+                    Command::Help => {
+                        print_help();
+                    }
+                    Command::Invalid(o) => match o {
+                        Some(t) => {
+                            println!("{}{}", " ".repeat(t.loc.col), "^".repeat(t.text.len()));
+                            println!("ERROR :: invalid command '{}'", t.text);
+                        }
+                        None => {
+                            let t = lexer.peek_token();
+                            println!("{}{}", " ".repeat(t.loc.col), "^".repeat(t.text.len()));
+                            println!("ERROR :: invalid command '{}'", t.text);
                         }
                     },
-                },
-                Command::Edit => {
-                    println!("TODO!!");
                 }
-                Command::Help => {
-                    print_help();
-                }
-                Command::Invalid(o) => match o {
-                    Some(t) => {
-                        println!("{}{}", " ".repeat(t.loc.col), "^".repeat(t.text.len()));
-                        println!("ERROR :: invalid command '{}'", t.text);
-                    }
-                    None => {
-                        let t = lexer.peek_token();
-                        println!("{}{}", " ".repeat(t.loc.col), "^".repeat(t.text.len()));
-                        println!("ERROR :: invalid command '{}'", t.text);
-                    }
-                },
-            },
+            }
             None => {}
         }
 

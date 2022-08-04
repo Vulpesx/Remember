@@ -1,6 +1,6 @@
 use crate::{
     lexer::{Lexer, Loc, Token, TokenKind},
-    Reminder,
+    loc_here, Reminder,
 };
 
 pub fn get_command<C: Iterator<Item = char>>(lexer: &mut Lexer<C>) -> Option<Command> {
@@ -70,12 +70,24 @@ pub fn parse_duration<C: Iterator<Item = char>>(
                 description,
             ))
         }
-        Err(token) => Err(ParserError::UnexpectedToken(
-            token.loc,
-            token.kind,
-            token.text,
-            TokenKind::Num,
-        )),
+        Err(token) => match token {
+            Token {
+                kind: TokenKind::UnclosedStr,
+                text,
+                loc,
+            } => Err(ParserError::UnclosedStr(loc, text)),
+            Token {
+                kind: TokenKind::End,
+                loc,
+                ..
+            } => Err(ParserError::NoToken(loc)),
+            Token { kind, text, loc } => Err(ParserError::UnexpectedToken(
+                loc,
+                kind,
+                text,
+                TokenKind::Str,
+            )),
+        },
     }
 }
 
@@ -83,6 +95,9 @@ pub fn parse_time<C: Iterator<Item = char>>(lexer: &mut Lexer<C>) -> Result<Remi
     match lexer.expect_token(TokenKind::Num) {
         Ok(token) => {
             let hour = token.text.parse::<u32>().unwrap();
+            if hour > 12 {
+                return Err(ParserError::InvalidNum(token.loc, hour as i32, 0, 12));
+            }
             let minute = match lexer.expect_token(TokenKind::Num) {
                 Ok(token) => token.text.parse::<u32>().unwrap(),
                 Err(token) => {
@@ -94,6 +109,9 @@ pub fn parse_time<C: Iterator<Item = char>>(lexer: &mut Lexer<C>) -> Result<Remi
                     ))
                 }
             };
+            if minute > 59 {
+                return Err(ParserError::InvalidNum(token.loc, minute as i32, 0, 59));
+            }
             let summary = match lexer.expect_token(TokenKind::Str) {
                 Ok(token) => token.text,
                 Err(token) => match token {
@@ -138,19 +156,134 @@ pub fn parse_time<C: Iterator<Item = char>>(lexer: &mut Lexer<C>) -> Result<Remi
                 description,
             ))
         }
-        Err(token) => Err(ParserError::UnexpectedToken(
-            token.loc,
-            token.kind,
-            token.text,
-            TokenKind::Num,
-        )),
+
+        Err(token) => match token {
+            Token {
+                kind: TokenKind::UnclosedStr,
+                text,
+                loc,
+            } => Err(ParserError::UnclosedStr(loc, text)),
+            Token {
+                kind: TokenKind::End,
+                loc,
+                ..
+            } => Err(ParserError::NoToken(loc)),
+            Token { kind, text, loc } => Err(ParserError::UnexpectedToken(
+                loc,
+                kind,
+                text,
+                TokenKind::Str,
+            )),
+        },
+    }
+}
+
+pub fn parse_day<C: Iterator<Item = char>>(lexer: &mut Lexer<C>) -> Result<Reminder, ParserError> {
+    match lexer.expect_token(TokenKind::Str) {
+        Ok(token) => {
+            let day = token.text;
+            if !"montuewedthufrisatsun".contains(&day) {
+                return Err(ParserError::InvalidDay(token.loc, day));
+            }
+            let hour = match lexer.expect_token(TokenKind::Num) {
+                Ok(token) => token.text.parse::<u32>().unwrap(),
+                Err(token) => {
+                    return Err(ParserError::UnexpectedToken(
+                        token.loc,
+                        token.kind,
+                        token.text,
+                        TokenKind::Num,
+                    ))
+                }
+            };
+            if hour > 12 {
+                return Err(ParserError::InvalidNum(lexer.loc(), hour as i32, 0, 12));
+            }
+            let minute = match lexer.expect_token(TokenKind::Num) {
+                Ok(token) => token.text.parse::<u32>().unwrap(),
+                Err(token) => {
+                    return Err(ParserError::UnexpectedToken(
+                        token.loc,
+                        token.kind,
+                        token.text,
+                        TokenKind::Num,
+                    ))
+                }
+            };
+            if minute > 59 {
+                return Err(ParserError::InvalidNum(lexer.loc(), minute as i32, 0, 59));
+            }
+            let summary = match lexer.expect_token(TokenKind::Str) {
+                Ok(token) => token.text,
+                Err(token) => match token {
+                    Token {
+                        kind: TokenKind::UnclosedStr,
+                        text,
+                        loc,
+                    } => return Err(ParserError::UnclosedStr(loc, text)),
+                    Token {
+                        kind: TokenKind::End,
+                        ..
+                    } => String::from("No summary provided"),
+                    Token { kind, text, loc } => {
+                        return Err(ParserError::UnexpectedToken(
+                            loc,
+                            kind,
+                            text,
+                            TokenKind::Str,
+                        ))
+                    }
+                },
+            };
+            let description = match lexer.next() {
+                Some(token) => match token {
+                    Token {
+                        kind: TokenKind::Str,
+                        text,
+                        ..
+                    } => Some(text),
+                    Token {
+                        kind: TokenKind::UnclosedStr,
+                        text,
+                        loc,
+                    } => return Err(ParserError::UnclosedStr(loc, text)),
+                    _ => None,
+                },
+                None => None,
+            };
+            Ok(Reminder::new(
+                crate::When::Day(day, hour, minute),
+                summary,
+                description,
+            ))
+        }
+        Err(token) => match token {
+            Token {
+                kind: TokenKind::UnclosedStr,
+                text,
+                loc,
+            } => Err(ParserError::UnclosedStr(loc, text)),
+            Token {
+                kind: TokenKind::End,
+                loc,
+                ..
+            } => Err(ParserError::NoToken(loc)),
+            Token { kind, text, loc } => Err(ParserError::UnexpectedToken(
+                loc,
+                kind,
+                text,
+                TokenKind::Str,
+            )),
+        },
     }
 }
 
 pub enum ParserError {
-    NoToken,
-    UnexpectedToken(Loc, TokenKind, String, TokenKind), // first is the unexpected token and its text then the expected token
+    NoToken(Loc),
+    UnexpectedToken(Loc, TokenKind, String, TokenKind), //found, text of token, expected
     UnclosedStr(Loc, String),
+    InvalidDay(Loc, String),
+    InvalidNum(Loc, i32, i32, i32), //num found, min, max
 }
 
 pub enum Command {
